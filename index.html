@@ -220,24 +220,20 @@ function toggleTheme() {
 
 async function upload() {
   if (!workOrder.value || !contractor.value || !workType.value)
-    return alert("⚠️ جميع الحقول مطلوبة");
+    return alert("جميع الحقول مطلوبة");
 
   const files = images.files;
-  if (!files.length) return alert("⚠️ اختر صور");
+  if (!files.length) return alert("اختر صور");
 
   uploadBtn.disabled = true;
   progressBox.style.display = "block";
-  status.innerText = "⏳ جاري تجهيز الصور...";
-  updateProgress(0);
+  status.innerText = "⏳ جاري الرفع...";
 
   let uploaded = 0;
   const total = files.length;
 
   for (const file of files) {
-    // 🔥 ضغط + تحويل
-    const compressed = await compressImage(file);
-
-    const base64 = await toBase64(compressed);
+    const base64 = await toBase64(file);
 
     await fetch(API_URL, {
       method: "POST",
@@ -246,8 +242,8 @@ async function upload() {
         contractor: contractor.value,
         workType: workType.value,
         images: [{
-          name: compressed.name,
-          type: compressed.type,
+          name: file.name,
+          type: file.type,
           data: base64.split(",")[1]
         }]
       })
