@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>رفع صور أوامر العمل</title>
+
+<style>
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --text: #111;
+  --primary: #2563eb;
+  --border: #ddd;
+}
+
+body.dark {
+  --bg: #0f172a;
+  --card: #020617;
+  --text: #e5e7eb;
+  --primary: #3b82f6;
+  --border: #1e293b;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  transition: .3s;
+}
+
+.container {
+  max-width: 540px;
+  margin: 40px auto;
+  background: var(--card);
+  padding: 26px;
+  border-radius: 18px;
+  box-shadow: 0 15px 40px rgba(0,0,0,.15);
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+input, button {
+  width: 95%;
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: 15px;
+  background: transparent;
+  color: var(--text);
+}
+
+input[type="file"] {
+  border: none;
+}
+
+button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.toggle button {
+  width: auto;
+  padding: 6px 14px;
+}
+
+.progress-box {
+  display: none;
+  margin-top: 15px;
+}
+
+.progress {
+  height: 10px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  transition: width .4s;
+}
+
+.percent {
+  text-align: center;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.status {
+  text-align: center;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.theme-switch {
+  position: relative;
+  width: 52px;
+  height: 28px;
+}
+
+.theme-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #cbd5f5;
+  border-radius: 999px;
+  transition: .3s;
+}
+
+.slider::before {
+  content: "☀️";
+  position: absolute;
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: .3s;
+}
+
+input:checked + .slider {
+  background: #1e293b;
+}
+
+input:checked + .slider::before {
+  transform: translateX(24px);
+  content: "🌙";
+}
+
+.top {
+  margin-top: 70px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <div class="toggle">
+    <h2>📁 رفع صور أمر عمل</h2>
+    <label class="theme-switch">
+      <input type="checkbox" id="themeToggle" onchange="toggleTheme()">
+      <span class="slider"></span>
+    </label>
+
+  </div>
+
+  <h3 class="top">رقم أمر العمل</h3>
+  <input id="workOrder" placeholder="رقم أمر العمل *">
+  <h3>اسم المقاول</h3>
+  <input id="contractor" placeholder="اسم المقاول *">
+  <h3>نوع العمل</h3>
+  <input id="workType" placeholder="نوع العمل *">
+  <h3>اضف الصور</h3>
+  <input type="file" id="images" multiple accept="image/*">
+
+  <button id="uploadBtn" onclick="upload()">⬆️ رفع الصور</button>
+
+  <div class="progress-box" id="progressBox">
+    <div class="progress"><span id="bar"></span></div>
+    <div class="percent" id="percent">0%</div>
+  </div>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbwkxkVEqTBmSdoaP7JnvvNXhxjOb21RD_P2ODkggKs5UXA0U4vfrZuUmgLwPwGYkenS/exec";
+
+// Theme
+if (localStorage.theme === "dark") document.body.classList.add("dark");
+function toggleTheme() {
+  document.body.classList.toggle("dark");
+  localStorage.theme = document.body.classList.contains("dark") ? "dark" : "light";
+}
+
+async function upload() {
+  if (!workOrder.value || !contractor.value || !workType.value)
+    return alert("جميع الحقول مطلوبة");
+
+  const files = images.files;
+  if (!files.length) return alert("اختر صور");
+
+  uploadBtn.disabled = true;
+  progressBox.style.display = "block";
+  status.innerText = "⏳ جاري الرفع...";
+
+  let uploaded = 0;
+  const total = files.length;
+
+  for (const file of files) {
+    const base64 = await toBase64(file);
+
+    await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        workOrder: workOrder.value,
+        contractor: contractor.value,
+        workType: workType.value,
+        images: [{
+          name: file.name,
+          type: file.type,
+          data: base64.split(",")[1]
+        }]
+      })
+    });
+
+    uploaded++;
+    const percent = (uploaded / total) * 100;
+    updateProgress(percent);
+    status.innerText = `⬆️ تم رفع ${uploaded} من ${total}`;
+  }
+
+  status.innerText = "✅ تم الرفع بنجاح";
+  resetForm();
+  uploadBtn.disabled = false;
+}
+
+  if (!workOrder.value || !contractor.value || !workType.value) {
+    return alert("⚠️ جميع الحقول مطلوبة");
+  }
+
+  if (!images.files.length) {
+    return alert("⚠️ اختر صور للرفع");
+  }
+
+  uploadBtn.disabled = true;
+  progressBox.style.display = "block";
+  status.innerText = "⏳ جاري تجهيز الملفات...";
+
+  const imgs = [];
+  let progress = 0;
+  const step = 60 / images.files.length;
+
+  for (const f of images.files) {
+    const base64 = await toBase64(f);
+    imgs.push({
+      name: f.name,
+      type: f.type,
+      data: base64.split(",")[1]
+    });
+    progress += step;
+    updateProgress(progress);
+  }
+
+  status.innerText = "⬆️ جاري رفع الصور...";
+  updateProgress(70);
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        workOrder: workOrder.value,
+        contractor: contractor.value,
+        workType: workType.value,
+        images: imgs
+      })
+    });
+
+    updateProgress(100);
+    const r = await res.json();
+
+    if (r.status === "success") {
+      status.innerText = "✅ تم الرفع بنجاح";
+      resetForm();
+    } else {
+      status.innerText = "❌ حدث خطأ";
+    }
+
+  } catch {
+    status.innerText = "❌ فشل الاتصال";
+  }
+
+  uploadBtn.disabled = false;
+}
+
+function updateProgress(val) {
+  bar.style.width = val + "%";
+  percent.innerText = Math.round(val) + "%";
+}
+
+function resetForm() {
+  setTimeout(() => {
+    workOrder.value = "";
+    contractor.value = "";
+    workType.value = "";
+    images.value = "";
+    progressBox.style.display = "none";
+    updateProgress(0);
+    status.innerText = "";
+  }, 1500);
+}
+
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+</script>
+
+</body>
+</html>
