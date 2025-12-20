@@ -211,6 +211,64 @@ function toggleTheme() {
 
 async function upload() {
   if (!workOrder.value || !contractor.value || !workType.value)
+    return alert("⚠️ جميع الحقول مطلوبة");
+
+  const files = Array.from(images.files);
+  if (!files.length) return alert("⚠️ اختر صور");
+
+  uploadBtn.disabled = true;
+  progressBox.style.display = "block";
+  status.innerText = "⏳ جاري الرفع...";
+  updateProgress(0);
+
+  let uploaded = 0;
+  const total = files.length;
+  const PARALLEL = 2; // 🔥 عدد الرفع المتوازي (لا تزوده)
+
+  async function uploadFile(file) {
+    const base64 = await toBase64(file);
+
+    await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        workOrder: workOrder.value,
+        contractor: contractor.value,
+        workType: workType.value,
+        images: [{
+          name: file.name,
+          type: file.type,
+          data: base64.split(",")[1]
+        }]
+      })
+    });
+
+    uploaded++;
+    const percent = (uploaded / total) * 100;
+    updateProgress(percent);
+    status.innerText = `⬆️ تم رفع ${uploaded} من ${total}`;
+  }
+
+  // 🔁 Queue ذكي
+  const queue = [...files];
+  const workers = new Array(PARALLEL).fill(0).map(async () => {
+    while (queue.length) {
+      const file = queue.shift();
+      await uploadFile(file);
+    }
+  });
+
+  try {
+    await Promise.all(workers);
+    status.innerText = "✅ تم الرفع بنجاح";
+    resetForm();
+  } catch (e) {
+    status.innerText = "❌ حدث خطأ أثناء الرفع";
+  }
+
+  uploadBtn.disabled = false;
+}
+
+  if (!workOrder.value || !contractor.value || !workType.value)
     return alert("جميع الحقول مطلوبة");
 
   const files = images.files;
@@ -249,7 +307,7 @@ async function upload() {
   status.innerText = "✅ تم الرفع بنجاح";
   resetForm();
   uploadBtn.disabled = false;
-}
+
 
   if (!workOrder.value || !contractor.value || !workType.value) {
     return alert("⚠️ جميع الحقول مطلوبة");
@@ -307,7 +365,7 @@ async function upload() {
   }
 
   uploadBtn.disabled = false;
-}
+
 
 function updateProgress(val) {
   bar.style.width = val + "%";
