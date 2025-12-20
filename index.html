@@ -219,45 +219,74 @@ function toggleTheme() {
 }
 
 async function upload() {
-  if (!workOrder.value || !contractor.value || !workType.value)
-    return alert("جميع الحقول مطلوبة");
+  if (!workOrder.value || !contractor.value || !workType.value) {
+    return alert("⚠️ جميع الحقول مطلوبة");
+  }
 
-  const files = images.files;
-  if (!files.length) return alert("اختر صور");
+  if (!images.files.length) {
+    return alert("⚠️ اختر صور للرفع");
+  }
 
   uploadBtn.disabled = true;
   progressBox.style.display = "block";
-  status.innerText = "⏳ جاري الرفع...";
+  status.innerText = "⏳ تجهيز الصور...";
+  updateProgress(5);
 
-  let uploaded = 0;
-  const total = files.length;
+  const imgs = [];
 
-  for (const file of files) {
-    const base64 = await toBase64(file);
-
-    await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        workOrder: workOrder.value,
-        contractor: contractor.value,
-        workType: workType.value,
-        images: [{
-          name: file.name,
-          type: file.type,
-          data: base64.split(",")[1]
-        }]
-      })
+  // تحويل الصور Base64
+  for (const f of images.files) {
+    const base64 = await toBase64(f);
+    imgs.push({
+      name: f.name,
+      type: f.type,
+      data: base64.split(",")[1]
     });
-
-    uploaded++;
-    const percent = (uploaded / total) * 100;
-    updateProgress(percent);
-    status.innerText = `⬆️ تم رفع ${uploaded} من ${total}`;
   }
 
-  status.innerText = "✅ تم الرفع بنجاح";
-  resetForm();
-  uploadBtn.disabled = false;
+  status.innerText = "⬆️ جاري رفع الصور...";
+  updateProgress(10);
+
+  const payload = JSON.stringify({
+    workOrder: workOrder.value,
+    contractor: contractor.value,
+    workType: workType.value,
+    images: imgs
+  });
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", API_URL, true);
+
+  // 📊 بروجرس حقيقي
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const percentComplete = (e.loaded / e.total) * 100;
+      updateProgress(percentComplete);
+    }
+  };
+
+  xhr.onload = () => {
+    if (xhr.status === 200) {
+      const r = JSON.parse(xhr.responseText);
+      if (r.status === "success") {
+        updateProgress(100);
+        status.innerText = "✅ تم الرفع بنجاح";
+        resetForm();
+      } else {
+        status.innerText = "❌ حدث خطأ";
+      }
+    } else {
+      status.innerText = "❌ فشل الاتصال";
+    }
+    uploadBtn.disabled = false;
+  };
+
+  xhr.onerror = () => {
+    status.innerText = "❌ خطأ في الشبكة";
+    uploadBtn.disabled = false;
+  };
+
+  xhr.send(payload);
 }
 
 function updateProgress(val) {
@@ -265,26 +294,6 @@ function updateProgress(val) {
   percent.innerText = Math.round(val) + "%";
 }
 
-function resetForm() {
-  setTimeout(() => {
-    workOrder.value = "";
-    contractor.value = "";
-    workType.value = "";
-    images.value = "";
-    progressBox.style.display = "none";
-    updateProgress(0);
-    status.innerText = "";
-  }, 1500);
-}
-
-function toBase64(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-}
 </script>
 
 </body>
