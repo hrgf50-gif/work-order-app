@@ -219,59 +219,59 @@ function toggleTheme() {
 }
 
 async function upload() {
-  if (!workOrder.value || !contractor.value || !workType.value) {
+  if (!workOrder.value || !contractor.value || !workType.value)
     return alert("⚠️ جميع الحقول مطلوبة");
-  }
 
-  if (!images.files.length) {
-    return alert("⚠️ اختر صور للرفع");
-  }
+  const files = Array.from(images.files);
+  if (!files.length) return alert("⚠️ اختر صور");
 
   uploadBtn.disabled = true;
   progressBox.style.display = "block";
-  status.innerText = "⏳ جاري تجهيز الملفات...";
+  status.innerText = "⏳ جاري الرفع...";
+  updateProgress(0);
 
-  const imgs = [];
-  let progress = 0;
-  const step = 60 / images.files.length;
+  let uploaded = 0;
+  const total = files.length;
+  const PARALLEL = 2; // 🔥 عدد الرفع المتوازي (لا تزوده)
 
-  for (const f of images.files) {
-    const base64 = await toBase64(f);
-    imgs.push({
-      name: f.name,
-      type: f.type,
-      data: base64.split(",")[1]
-    });
-    progress += step;
-    updateProgress(progress);
-  }
+  async function uploadFile(file) {
+    const base64 = await toBase64(file);
 
-  status.innerText = "⬆️ جاري رفع الصور...";
-  updateProgress(70);
-
-  try {
-    const res = await fetch(API_URL, {
+    await fetch(API_URL, {
       method: "POST",
       body: JSON.stringify({
         workOrder: workOrder.value,
         contractor: contractor.value,
         workType: workType.value,
-        images: imgs
+        images: [{
+          name: file.name,
+          type: file.type,
+          data: base64.split(",")[1]
+        }]
       })
     });
 
-    updateProgress(100);
-    const r = await res.json();
+    uploaded++;
+    const percent = (uploaded / total) * 100;
+    updateProgress(percent);
+    status.innerText = `⬆️ تم رفع ${uploaded} من ${total}`;
+  }
 
-    if (r.status === "success") {
-      status.innerText = "✅ تم الرفع بنجاح";
-      resetForm();
-    } else {
-      status.innerText = "❌ حدث خطأ";
+  // 🔁 Queue ذكي
+  const queue = [...files];
+  const workers = new Array(PARALLEL).fill(0).map(async () => {
+    while (queue.length) {
+      const file = queue.shift();
+      await uploadFile(file);
     }
+  });
 
-  } catch {
-    status.innerText = "❌ فشل الاتصال";
+  try {
+    await Promise.all(workers);
+    status.innerText = "✅ تم الرفع بنجاح";
+    resetForm();
+  } catch (e) {
+    status.innerText = "❌ حدث خطأ أثناء الرفع";
   }
 
   uploadBtn.disabled = false;
