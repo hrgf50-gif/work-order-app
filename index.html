@@ -31,33 +31,24 @@ body {
 }
 
 .container {
-  max-width: 560px;
+  max-width: 540px;
   margin: 40px auto;
   background: var(--card);
-  padding: 28px;
+  padding: 26px;
   border-radius: 18px;
   box-shadow: 0 15px 40px rgba(0,0,0,.15);
-}
-
-.top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  justify-content: center;
 }
 
 h2 {
-  margin: 0;
-}
-
-h3 {
-  margin: 12px 0 6px;
-  font-size: 15px;
+  text-align: center;
+  margin-bottom: 18px;
 }
 
 input, button {
-  width: 100%;
+  width: 95%;
   padding: 12px;
+  margin-bottom: 14px;
   border-radius: 12px;
   border: 1px solid var(--border);
   font-size: 15px;
@@ -65,16 +56,11 @@ input, button {
   color: var(--text);
 }
 
-input {
-  margin-bottom: 10px;
-}
-
 input[type="file"] {
   border: none;
 }
 
 button {
-  margin-top: 15px;
   background: var(--primary);
   color: #fff;
   border: none;
@@ -86,7 +72,49 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Toggle */
+.toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.toggle button {
+  width: auto;
+  padding: 6px 14px;
+}
+
+.progress-box {
+  display: none;
+  margin-top: 15px;
+}
+
+.progress {
+  height: 10px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  transition: width .4s;
+}
+
+.percent {
+  text-align: center;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.status {
+  text-align: center;
+  margin-top: 10px;
+  font-weight: bold;
+}
 .theme-switch {
   position: relative;
   width: 52px;
@@ -101,11 +129,11 @@ button:disabled {
 
 .slider {
   position: absolute;
+  cursor: pointer;
   inset: 0;
   background: #cbd5f5;
   border-radius: 999px;
   transition: .3s;
-  cursor: pointer;
 }
 
 .slider::before {
@@ -133,61 +161,27 @@ input:checked + .slider::before {
   content: "🌙";
 }
 
-/* Progress */
-.progress-box {
-  display: none;
-  margin-top: 18px;
-}
-
-.progress {
-  height: 10px;
-  background: var(--border);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progress span {
-  display: block;
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #2563eb, #60a5fa);
-  transition: width .3s;
-}
-
-.percent {
-  text-align: center;
-  margin-top: 6px;
-  font-size: 13px;
-}
-
-.status {
-  text-align: center;
-  margin-top: 10px;
-  font-weight: bold;
-}
-
 .top {
-  margin-top: 100px;
+  margin-top: 70px;
 }
 
 h3 {
-  margin-top: 50px;
+  margin-top: 20px;
 }
+
 </style>
 </head>
 
 <body>
 
 <div class="container">
-
-  <div class="top-bar">
+  <div class="toggle">
     <h2>📁 رفع صور أمر عمل</h2>
     <label class="theme-switch">
-      <input type="checkbox" id="themeToggle" onchange="toggleTheme()">
-      <span class="slider"></span>
-    </label>
+    <input type="checkbox" id="themeToggle" onchange="toggleTheme()">
+  <span class="slider"></span>
+  </label>
   </div>
-
   <h3 class="top">رقم أمر العمل</h3>
   <input id="workOrder" placeholder="رقم أمر العمل *">
 
@@ -213,10 +207,10 @@ h3 {
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbwkxkVEqTBmSdoaP7JnvvNXhxjOb21RD_P2ODkggKs5UXA0U4vfrZuUmgLwPwGYkenS/exec";
 
-/* Theme */
+// Theme
 if (localStorage.theme === "dark") {
   document.body.classList.add("dark");
-  themeToggle.checked = true;
+  document.getElementById("themeToggle").checked = true;
 }
 
 function toggleTheme() {
@@ -224,60 +218,60 @@ function toggleTheme() {
   localStorage.theme = document.body.classList.contains("dark") ? "dark" : "light";
 }
 
-/* Upload with parallel optimization */
 async function upload() {
-  if (!workOrder.value || !contractor.value || !workType.value)
+  if (!workOrder.value || !contractor.value || !workType.value) {
     return alert("⚠️ جميع الحقول مطلوبة");
+  }
 
-  const files = Array.from(images.files);
-  if (!files.length) return alert("⚠️ اختر صور");
+  if (!images.files.length) {
+    return alert("⚠️ اختر صور للرفع");
+  }
 
   uploadBtn.disabled = true;
   progressBox.style.display = "block";
-  status.innerText = "⏳ جاري الرفع...";
-  updateProgress(0);
+  status.innerText = "⏳ جاري تجهيز الملفات...";
 
-  let uploaded = 0;
-  const total = files.length;
-  const PARALLEL = 2; // أفضل توازن سرعة/ثبات
+  const imgs = [];
+  let progress = 0;
+  const step = 60 / images.files.length;
 
-  async function uploadFile(file) {
-    const base64 = await toBase64(file);
+  for (const f of images.files) {
+    const base64 = await toBase64(f);
+    imgs.push({
+      name: f.name,
+      type: f.type,
+      data: base64.split(",")[1]
+    });
+    progress += step;
+    updateProgress(progress);
+  }
 
-    await fetch(API_URL, {
+  status.innerText = "⬆️ جاري رفع الصور...";
+  updateProgress(70);
+
+  try {
+    const res = await fetch(API_URL, {
       method: "POST",
       body: JSON.stringify({
         workOrder: workOrder.value,
         contractor: contractor.value,
         workType: workType.value,
-        images: [{
-          name: file.name,
-          type: file.type,
-          data: base64.split(",")[1]
-        }]
+        images: imgs
       })
     });
 
-    uploaded++;
-    const percent = (uploaded / total) * 100;
-    updateProgress(percent);
-    status.innerText = `⬆️ تم رفع ${uploaded} من ${total}`;
-  }
+    updateProgress(100);
+    const r = await res.json();
 
-  const queue = [...files];
-  const workers = new Array(PARALLEL).fill(0).map(async () => {
-    while (queue.length) {
-      const file = queue.shift();
-      await uploadFile(file);
+    if (r.status === "success") {
+      status.innerText = "✅ تم الرفع بنجاح";
+      resetForm();
+    } else {
+      status.innerText = "❌ حدث خطأ";
     }
-  });
 
-  try {
-    await Promise.all(workers);
-    status.innerText = "✅ تم الرفع بنجاح";
-    resetForm();
   } catch {
-    status.innerText = "❌ حدث خطأ أثناء الرفع";
+    status.innerText = "❌ فشل الاتصال";
   }
 
   uploadBtn.disabled = false;
